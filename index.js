@@ -4,7 +4,7 @@ const port = process.env.PORT || 3000;
 const cors = require("cors");
 require("dotenv").config();
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 app.use(cors());
 app.use(express.json());
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.x3egp.mongodb.net/?appName=Cluster0`;
@@ -41,6 +41,13 @@ async function run() {
         .sort({ createdAt: -1 })
         .limit(6)
         .toArray();
+      console.log(result);
+      res.send(result);
+    });
+    // book details
+    app.get("/book-details/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await booksCollection.findOne({ _id: new ObjectId(id) });
       console.log(result);
       res.send(result);
     });
