@@ -29,7 +29,13 @@ async function run() {
 
     // all books api
     app.get("/all-books", async (req, res) => {
-      const result = await booksCollection.find().toArray();
+      const email = req.query.email;
+      console.log("email", email);
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      const result = await booksCollection.find(query).toArray();
       console.log(result);
       res.send(result);
     });
