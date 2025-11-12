@@ -26,7 +26,7 @@ async function run() {
 
     const bookDB = client.db("bookDB");
     const booksCollection = bookDB.collection("books");
-
+    const commentCollection = bookDB.collection("comment");
     // all books api
     app.get("/all-books", async (req, res) => {
       const email = req.query.email;
@@ -80,6 +80,14 @@ async function run() {
       res.send(result);
       console.log(result);
     });
+    // comment related api
+    // add a comment
+    app.post("/add-comment", async (req, res) => {
+      const result = await commentCollection.insertOne(req.body);
+      res.send(result);
+      console.log(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
