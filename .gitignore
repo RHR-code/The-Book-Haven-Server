@@ -1,3 +1,5 @@
 node_modules
 .env
 some.json
+the-book-haven-sdk.json
+.vercel

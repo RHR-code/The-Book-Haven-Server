@@ -3,10 +3,42 @@ const app = express();
 const port = process.env.PORT || 3000;
 const cors = require("cors");
 require("dotenv").config();
+var admin = require("firebase-admin");
+
+// index.js
+const decoded = Buffer.from(
+  process.env.FIREBASE_SERVICE_KEY,
+  "base64"
+).toString("utf8");
+const serviceAccount = JSON.parse(decoded);
+
+// const serviceAccount = require("./the-book-haven-sdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+// middlewares
 app.use(cors());
 app.use(express.json());
+
+const verifyFirebaseToken = async (req, res, next) => {
+  console.log("token is verifying");
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "You're Not Authorized" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    console.log(decoded);
+    req.token_email = decoded.email;
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "You're Not Authorized" });
+  }
+};
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.x3egp.mongodb.net/?appName=Cluster0`;
 
 app.get("/", (req, res) => {
@@ -22,23 +54,52 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const bookDB = client.db("bookDB");
     const booksCollection = bookDB.collection("books");
     const commentCollection = bookDB.collection("comment");
     // all books api
-    app.get("/all-books", async (req, res) => {
+    app.get("/all-books", verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
-      console.log("email", email);
+      console.log(req.token_email);
       const query = {};
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(401).send({ message: "You're Not Authorized" });
+        }
         query.userEmail = email;
       }
       const result = await booksCollection.find(query).toArray();
-      console.log(result);
       res.send(result);
     });
+    // sort by rating
+    // low to high
+    app.get(
+      "/all-books/sort-low-to-high",
+      verifyFirebaseToken,
+      async (req, res) => {
+        const result = await booksCollection
+          .find()
+          .sort({ rating: 1 })
+          .toArray();
+        console.log(result);
+        res.send(result);
+      }
+    );
+    // high to low
+    app.get(
+      "/all-books/sort-high-to-low",
+      verifyFirebaseToken,
+      async (req, res) => {
+        const result = await booksCollection
+          .find()
+          .sort({ rating: -1 })
+          .toArray();
+        console.log(result);
+        res.send(result);
+      }
+    );
 
     // latest books api
     app.get("/latest-books", async (req, res) => {
@@ -51,21 +112,21 @@ async function run() {
       res.send(result);
     });
     // book details
-    app.get("/book-details/:id", async (req, res) => {
+    app.get("/book-details/:id", verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
       const result = await booksCollection.findOne({ _id: new ObjectId(id) });
       console.log(result);
       res.send(result);
     });
     // add book
-    app.post("/add-books", async (req, res) => {
+    app.post("/add-books", verifyFirebaseToken, async (req, res) => {
       const result = await booksCollection.insertOne(req.body);
       console.log(result);
       res.send(result);
     });
 
     // update book
-    app.patch("/update-book/:id", async (req, res) => {
+    app.patch("/update-book/:id", verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const update = { $set: req.body };
@@ -73,7 +134,7 @@ async function run() {
       res.send(result);
     });
     // delete book
-    app.delete("/delete-book/:id", async (req, res) => {
+    app.delete("/delete-book/:id", verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await booksCollection.deleteOne(query);
@@ -95,10 +156,10 @@ async function run() {
       res.send(result);
       console.log(result);
     });
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
   }
 }
