@@ -60,9 +60,15 @@ async function run() {
     const booksCollection = bookDB.collection("books");
     const commentCollection = bookDB.collection("comment");
     // all books api
-    app.get("/all-books", verifyFirebaseToken, async (req, res) => {
+    app.get("/all-books", async (req, res) => {
+      const sortVal = req.query.sort;
       const email = req.query.email;
-      console.log(req.token_email);
+      const searchText = req.query.searchText;
+      const sort = {};
+      if (sortVal) {
+        sort.rating = sortVal;
+      }
+
       const query = {};
       if (email) {
         if (email !== req.token_email) {
@@ -70,49 +76,25 @@ async function run() {
         }
         query.userEmail = email;
       }
-      const result = await booksCollection.find(query).toArray();
+      if (searchText) {
+        query.title = { $regex: searchText, $options: "i" };
+      }
+      const result = await booksCollection.find(query).sort(sort).toArray();
       res.send(result);
     });
-    // sort by rating
-    // low to high
-    app.get(
-      "/all-books/sort-low-to-high",
-      verifyFirebaseToken,
-      async (req, res) => {
-        const result = await booksCollection
-          .find()
-          .sort({ rating: 1 })
-          .toArray();
-        console.log(result);
-        res.send(result);
-      }
-    );
-    // high to low
-    app.get(
-      "/all-books/sort-high-to-low",
-      verifyFirebaseToken,
-      async (req, res) => {
-        const result = await booksCollection
-          .find()
-          .sort({ rating: -1 })
-          .toArray();
-        console.log(result);
-        res.send(result);
-      }
-    );
 
     // latest books api
     app.get("/latest-books", async (req, res) => {
       const result = await booksCollection
         .find()
         .sort({ createdAt: -1 })
-        .limit(6)
+        .limit(8)
         .toArray();
       console.log(result);
       res.send(result);
     });
     // book details
-    app.get("/book-details/:id", verifyFirebaseToken, async (req, res) => {
+    app.get("/book-details/:id", async (req, res) => {
       const id = req.params.id;
       const result = await booksCollection.findOne({ _id: new ObjectId(id) });
       console.log(result);
