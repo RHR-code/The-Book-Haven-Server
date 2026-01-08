@@ -62,12 +62,36 @@ async function run() {
     // all books api
     app.get("/all-books", async (req, res) => {
       const sortVal = req.query.sort;
-      const email = req.query.email;
       const searchText = req.query.searchText;
+      const { skip, limit, filter } = req.query;
       const sort = {};
       if (sortVal) {
         sort.rating = sortVal;
       }
+      const query = {};
+
+      if (searchText) {
+        query.title = { $regex: searchText, $options: "i" };
+      }
+      if (filter) {
+        if (filter === "All") {
+          return (query.genre = { $regex: "", $options: "i" });
+        }
+        query.genre = { $regex: filter, $options: "i" };
+      }
+      const result = await booksCollection
+        .find(query)
+        .skip(Number(skip))
+        .limit(Number(limit))
+        .sort(sort)
+        .toArray();
+      res.send(result);
+    });
+
+    // my books
+    app.get("/my-books", verifyFirebaseToken, async (req, res) => {
+      const email = req.query.email;
+      console.log("email", email);
 
       const query = {};
       if (email) {
@@ -76,10 +100,7 @@ async function run() {
         }
         query.userEmail = email;
       }
-      if (searchText) {
-        query.title = { $regex: searchText, $options: "i" };
-      }
-      const result = await booksCollection.find(query).sort(sort).toArray();
+      const result = await booksCollection.find(query).toArray();
       res.send(result);
     });
 
